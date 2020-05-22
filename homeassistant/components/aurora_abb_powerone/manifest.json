@@ -1,16 +1,12 @@
 {
   "name": "Aurora ABB PowerOne Solar PV",
+  "domain": "aurora_abb_powerone",
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/integrations/aurora_abb_powerone",
-  "requirements": [
-    "aurorapy==0.2.6"
-  ],
+  "requirements": ["aurorapy==0.2.6"],
   "ssdp": [],
   "zeroconf": [],
   "homekit": {},
   "dependencies": [],
-  "codeowners": [
-    "@davet2001"
-  ]
+  "codeowners": ["@davet2001"]
 }
-
