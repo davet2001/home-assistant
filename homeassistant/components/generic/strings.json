@@ -1,0 +1,32 @@
+{
+  "config": {
+    "error": {
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "single_instance_allowed": "[%key:common::config_flow::abort::single_instance_allowed%]",
+      "no_devices_found": "[%key:common::config_flow::abort::no_devices_found%]"
+    },
+    "step": {
+      "user": {
+        "description": "Enter the settings to connect to the camera.",
+        "data": {
+          "name": "Device Name",
+          "still_image_url": "Still Image URL (e.g. http://...)",
+          "stream_source": "Stream Source URL (e.g. rtsp://...)",
+          "authentication": "Authentication",
+          "limit_refetch_to_url_change": "Limit refetch to url change",
+          "password": "[%key:common::config_flow::data::password%]",
+          "username": "[%key:common::config_flow::data::username%]",
+          "content_type": "Content Type",
+          "framerate": "Frame Rate (Hz)",
+          "verify_ssl": "Verify SSL"
+        },
+        "title": "Set up Generic IP Camera"
+      },
+      "confirm": {
+        "description": "[%key:common::config_flow::description::confirm_setup%]"
+      }
+    }
+  }
+}
