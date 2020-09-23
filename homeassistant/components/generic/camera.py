@@ -28,17 +28,23 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.reload import async_setup_reload_service
 
-from . import DOMAIN, PLATFORMS
+from . import (
+    DOMAIN,
+    PLATFORMS,
+)
+
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_CONTENT_TYPE = "content_type"
-CONF_LIMIT_REFETCH_TO_URL_CHANGE = "limit_refetch_to_url_change"
-CONF_STILL_IMAGE_URL = "still_image_url"
-CONF_STREAM_SOURCE = "stream_source"
-CONF_FRAMERATE = "framerate"
+from .const import (
+    CONF_STILL_IMAGE_URL,
+    CONF_STREAM_SOURCE,
+    DEFAULT_NAME,
+    CONF_CONTENT_TYPE,
+    CONF_LIMIT_REFETCH_TO_URL_CHANGE,
+    CONF_FRAMERATE,
+)
 
-DEFAULT_NAME = "Generic Camera"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -64,8 +70,13 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     """Set up a generic IP Camera."""
 
     await async_setup_reload_service(hass, DOMAIN, PLATFORMS)
-
     async_add_entities([GenericCamera(hass, config)])
+
+
+async def async_setup_entry(hass, config, async_add_entities):
+    """Set up a generic IP Camera."""
+
+    async_add_entities([GenericCamera(hass, config.data)])
 
 
 class GenericCamera(Camera):
@@ -77,9 +88,15 @@ class GenericCamera(Camera):
         self.hass = hass
         self._authentication = device_info.get(CONF_AUTHENTICATION)
         self._name = device_info.get(CONF_NAME)
-        self._still_image_url = device_info[CONF_STILL_IMAGE_URL]
-        self._stream_source = device_info.get(CONF_STREAM_SOURCE)
+        if isinstance(device_info[CONF_STILL_IMAGE_URL], str):
+            self._still_image_url = cv.template(device_info[CONF_STILL_IMAGE_URL])
+        else:
+            self._still_image_url = device_info[CONF_STILL_IMAGE_URL]
         self._still_image_url.hass = hass
+        if isinstance(device_info.get(CONF_STREAM_SOURCE), str):
+            self._stream_source = cv.template(device_info.get(CONF_STREAM_SOURCE))
+        else:
+            self._stream_source = device_info.get(CONF_STREAM_SOURCE)
         if self._stream_source is not None:
             self._stream_source.hass = hass
         self._limit_refetch = device_info[CONF_LIMIT_REFETCH_TO_URL_CHANGE]

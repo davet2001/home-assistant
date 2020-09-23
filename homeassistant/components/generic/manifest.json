@@ -1,6 +1,7 @@
 {
   "domain": "generic",
-  "name": "Generic",
-  "documentation": "https://www.home-assistant.io/integrations/generic",
+  "name": "Generic IP Camera",
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/generic_ip_camera",
   "codeowners": []
 }
