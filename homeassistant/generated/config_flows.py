@@ -64,6 +64,7 @@ FLOWS = [
     "fritzbox",
     "garmin_connect",
     "gdacs",
+    "generic",
     "geofency",
     "geonetnz_quakes",
     "geonetnz_volcano",
