@@ -23,6 +23,10 @@ from .const import (
     CONF_STILL_IMAGE_URL,
     CONF_STREAM_SOURCE,
     DEFAULT_NAME,
+    DEFAULT_USERNAME,
+    DEFAULT_PASSWORD,
+    DEFAULT_IMAGE_URL,
+    DEFAULT_STREAM_SOURCE,
     CONF_CONTENT_TYPE,
     CONF_LIMIT_REFETCH_TO_URL_CHANGE,
     CONF_FRAMERATE,
@@ -33,17 +37,18 @@ PLATFORM_SCHEMA = vol.Schema(
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
         vol.Required(
             CONF_STILL_IMAGE_URL,
-            default="http://",
+            default=DEFAULT_IMAGE_URL,
         ): str,
         vol.Optional(
             CONF_STREAM_SOURCE,
+            default=DEFAULT_STREAM_SOURCE,
         ): str,
         vol.Optional(CONF_AUTHENTICATION, default=HTTP_BASIC_AUTHENTICATION): vol.In(
             [HTTP_BASIC_AUTHENTICATION, HTTP_DIGEST_AUTHENTICATION]
         ),
         vol.Optional(CONF_LIMIT_REFETCH_TO_URL_CHANGE, default=False): bool,
-        vol.Optional(CONF_USERNAME): str,
-        vol.Optional(CONF_PASSWORD): str,
+        vol.Optional(CONF_USERNAME, default=DEFAULT_USERNAME): str,
+        vol.Optional(CONF_PASSWORD, default=DEFAULT_PASSWORD): str,
         vol.Optional(CONF_CONTENT_TYPE, default=DEFAULT_CONTENT_TYPE): str,
         vol.Optional(CONF_FRAMERATE, default=2): int,
         vol.Optional(CONF_VERIFY_SSL, default=True): bool,
