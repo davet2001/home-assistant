@@ -28,22 +28,18 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.reload import async_setup_reload_service
 
-from . import (
-    DOMAIN,
-    PLATFORMS,
-)
-
-
-_LOGGER = logging.getLogger(__name__)
-
+from . import PLATFORMS
 from .const import (
+    CONF_CONTENT_TYPE,
+    CONF_FRAMERATE,
+    CONF_LIMIT_REFETCH_TO_URL_CHANGE,
     CONF_STILL_IMAGE_URL,
     CONF_STREAM_SOURCE,
     DEFAULT_NAME,
-    CONF_CONTENT_TYPE,
-    CONF_LIMIT_REFETCH_TO_URL_CHANGE,
-    CONF_FRAMERATE,
+    DOMAIN,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
