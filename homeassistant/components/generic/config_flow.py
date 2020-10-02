@@ -2,6 +2,7 @@
 
 import imghdr
 import logging
+from typing import Any, Dict
 
 import av
 import voluptuous as vol
@@ -19,6 +20,8 @@ from homeassistant.const import (
 )
 
 from .camera import GenericCamera
+
+# pylint: disable=unused-import
 from .const import (
     CONF_CONTENT_TYPE,
     CONF_FRAMERATE,
@@ -50,13 +53,18 @@ _LOGGER = logging.getLogger(__name__)
 class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Example config flow."""
 
+    def __init__(self):
+        """Initialise the config flow."""
+        super().__init__()
+        self._errors = {}
+
     async def _test_connection(self, info):
         """Verify that the camera data is valid before we add it."""
         await self.async_set_unique_id(info[CONF_STILL_IMAGE_URL])
         try:
             self._abort_if_unique_id_configured()
-        except data_entry_flow.AbortFlow as e:
-            if "already_configured" in str(e):
+        except data_entry_flow.AbortFlow as err:
+            if "already_configured" in str(err):
                 self._errors["base"] = "still_image_already_configured"
                 return False
         cam = GenericCamera(self.hass, info)
@@ -67,7 +75,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return False
         fmt = imghdr.what(None, h=image)
         _LOGGER.info(
-            "Still image at '%s' detected format: %s", cam._still_image_url, fmt
+            "Still image at '%s' detected format: %s", info[CONF_STILL_IMAGE_URL], fmt
         )
         if fmt is None:
             self._errors["base"] = "invalid_still_image"
@@ -84,61 +92,68 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors["base"] = "stream_unauthorised"
             except (KeyError, IndexError):
                 self._errors["base"] = "stream_novideo"
-            except av.error.OSError as e:
-                if "No route to host" in str(e):
+            except av.error.OSError as err:
+                if "No route to host" in str(err):
                     self._errors["base"] = "stream_no_route_to_host"
             return False
-        else:
-            return True
+        return True
 
-    async def async_step_user(self, info):
+    async def async_step_user(
+        self, user_input: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
         """Handle the start of the config flow."""
 
         self._errors = {}
 
-        if info is not None:
-            if await self._test_connection(info):
-                return self.async_create_entry(title=info[CONF_NAME], data=info)
+        if user_input is not None:
+            if await self._test_connection(user_input):
+                return self.async_create_entry(
+                    title=user_input[CONF_NAME], data=user_input
+                )
         else:
-            info = {}
-            info[CONF_NAME] = DEFAULT_NAME
-            info[CONF_STILL_IMAGE_URL] = DEFAULT_IMAGE_URL
-            info[CONF_STREAM_SOURCE] = DEFAULT_STREAM_SOURCE
-            info[CONF_USERNAME] = DEFAULT_USERNAME
-            info[CONF_PASSWORD] = DEFAULT_PASSWORD
-            info[CONF_AUTHENTICATION] = HTTP_BASIC_AUTHENTICATION
-            info[CONF_LIMIT_REFETCH_TO_URL_CHANGE] = False
-            info[CONF_CONTENT_TYPE] = DEFAULT_CONTENT_TYPE
-            info[CONF_FRAMERATE] = 2
-            info[CONF_VERIFY_SSL] = True
+            user_input = {}
+            user_input[CONF_NAME] = DEFAULT_NAME
+            user_input[CONF_STILL_IMAGE_URL] = DEFAULT_IMAGE_URL
+            user_input[CONF_STREAM_SOURCE] = DEFAULT_STREAM_SOURCE
+            user_input[CONF_USERNAME] = DEFAULT_USERNAME
+            user_input[CONF_PASSWORD] = DEFAULT_PASSWORD
+            user_input[CONF_AUTHENTICATION] = HTTP_BASIC_AUTHENTICATION
+            user_input[CONF_LIMIT_REFETCH_TO_URL_CHANGE] = False
+            user_input[CONF_CONTENT_TYPE] = DEFAULT_CONTENT_TYPE
+            user_input[CONF_FRAMERATE] = 2
+            user_input[CONF_VERIFY_SSL] = True
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_NAME, default=info[CONF_NAME]): str,
+                    vol.Optional(CONF_NAME, default=user_input[CONF_NAME]): str,
                     vol.Required(
                         CONF_STILL_IMAGE_URL,
-                        default=info[CONF_STILL_IMAGE_URL],
+                        default=user_input[CONF_STILL_IMAGE_URL],
                     ): str,
                     vol.Optional(
                         CONF_STREAM_SOURCE,
-                        default=info[CONF_STREAM_SOURCE],
+                        default=user_input[CONF_STREAM_SOURCE],
                     ): str,
                     vol.Optional(
-                        CONF_AUTHENTICATION, default=info[CONF_AUTHENTICATION]
+                        CONF_AUTHENTICATION, default=user_input[CONF_AUTHENTICATION]
                     ): vol.In([HTTP_BASIC_AUTHENTICATION, HTTP_DIGEST_AUTHENTICATION]),
-                    vol.Optional(CONF_USERNAME, default=info[CONF_USERNAME]): str,
-                    vol.Optional(CONF_PASSWORD, default=info[CONF_PASSWORD]): str,
+                    vol.Optional(CONF_USERNAME, default=user_input[CONF_USERNAME]): str,
+                    vol.Optional(CONF_PASSWORD, default=user_input[CONF_PASSWORD]): str,
                     vol.Optional(
                         CONF_LIMIT_REFETCH_TO_URL_CHANGE,
-                        default=info[CONF_LIMIT_REFETCH_TO_URL_CHANGE],
+                        default=user_input[CONF_LIMIT_REFETCH_TO_URL_CHANGE],
                     ): bool,
                     vol.Optional(
-                        CONF_CONTENT_TYPE, default=info[CONF_CONTENT_TYPE]
+                        CONF_CONTENT_TYPE, default=user_input[CONF_CONTENT_TYPE]
                     ): str,
-                    vol.Optional(CONF_FRAMERATE, default=info[CONF_FRAMERATE]): int,
-                    vol.Optional(CONF_VERIFY_SSL, default=info[CONF_VERIFY_SSL]): bool,
+                    vol.Optional(
+                        CONF_FRAMERATE, default=user_input[CONF_FRAMERATE]
+                    ): int,
+                    vol.Optional(
+                        CONF_VERIFY_SSL, default=user_input[CONF_VERIFY_SSL]
+                    ): bool,
                 }
             ),
             errors=self._errors,
