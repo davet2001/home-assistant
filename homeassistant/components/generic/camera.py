@@ -84,16 +84,18 @@ class GenericCamera(Camera):
         self.hass = hass
         self._authentication = device_info.get(CONF_AUTHENTICATION)
         self._name = device_info.get(CONF_NAME)
-        if isinstance(device_info[CONF_STILL_IMAGE_URL], str):
+        strg = device_info[CONF_STILL_IMAGE_URL]
+        if isinstance(strg, str) and strg != "":
             self._still_image_url = cv.template(device_info[CONF_STILL_IMAGE_URL])
         else:
             self._still_image_url = device_info[CONF_STILL_IMAGE_URL]
         self._still_image_url.hass = hass
-        if isinstance(device_info.get(CONF_STREAM_SOURCE), str):
+        strg = device_info.get(CONF_STREAM_SOURCE)
+        if isinstance(strg, str) and strg != "":
             self._stream_source = cv.template(device_info.get(CONF_STREAM_SOURCE))
         else:
             self._stream_source = device_info.get(CONF_STREAM_SOURCE)
-        if self._stream_source is not None:
+        if self._stream_source not in [None, ""]:
             self._stream_source.hass = hass
         self._limit_refetch = device_info[CONF_LIMIT_REFETCH_TO_URL_CHANGE]
         self._frame_interval = 1 / device_info[CONF_FRAMERATE]

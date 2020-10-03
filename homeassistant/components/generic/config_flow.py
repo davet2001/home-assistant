@@ -28,11 +28,7 @@ from .const import (
     CONF_LIMIT_REFETCH_TO_URL_CHANGE,
     CONF_STILL_IMAGE_URL,
     CONF_STREAM_SOURCE,
-    DEFAULT_IMAGE_URL,
     DEFAULT_NAME,
-    DEFAULT_PASSWORD,
-    DEFAULT_STREAM_SOURCE,
-    DEFAULT_USERNAME,
     DOMAIN,
 )
 
@@ -71,7 +67,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return False
 
         # Second level functionality is to get a stream.
-        if info.get(CONF_STREAM_SOURCE) is not None:
+        if info.get(CONF_STREAM_SOURCE) not in [None, ""]:
             try:
                 container = av.open(info.get(CONF_STREAM_SOURCE), options=None)
                 video_stream = container.streams.video[0]
@@ -103,10 +99,6 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         else:
             user_input = {}
             user_input[CONF_NAME] = DEFAULT_NAME
-            user_input[CONF_STILL_IMAGE_URL] = DEFAULT_IMAGE_URL
-            user_input[CONF_STREAM_SOURCE] = DEFAULT_STREAM_SOURCE
-            user_input[CONF_USERNAME] = DEFAULT_USERNAME
-            user_input[CONF_PASSWORD] = DEFAULT_PASSWORD
             user_input[CONF_AUTHENTICATION] = HTTP_BASIC_AUTHENTICATION
             user_input[CONF_LIMIT_REFETCH_TO_URL_CHANGE] = False
             user_input[CONF_CONTENT_TYPE] = DEFAULT_CONTENT_TYPE
@@ -120,17 +112,22 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_NAME, default=user_input[CONF_NAME]): str,
                     vol.Required(
                         CONF_STILL_IMAGE_URL,
-                        default=user_input[CONF_STILL_IMAGE_URL],
+                        default=user_input.get(CONF_STILL_IMAGE_URL),
                     ): str,
                     vol.Optional(
                         CONF_STREAM_SOURCE,
-                        default=user_input[CONF_STREAM_SOURCE],
+                        default=user_input.get(CONF_STREAM_SOURCE, ""),
                     ): str,
                     vol.Optional(
                         CONF_AUTHENTICATION, default=user_input[CONF_AUTHENTICATION]
                     ): vol.In([HTTP_BASIC_AUTHENTICATION, HTTP_DIGEST_AUTHENTICATION]),
-                    vol.Optional(CONF_USERNAME, default=user_input[CONF_USERNAME]): str,
-                    vol.Optional(CONF_PASSWORD, default=user_input[CONF_PASSWORD]): str,
+                    vol.Optional(
+                        CONF_USERNAME,
+                        default=user_input.get(CONF_USERNAME, ""),
+                    ): str,
+                    vol.Optional(
+                        CONF_PASSWORD, default=user_input.get(CONF_PASSWORD, "")
+                    ): str,
                     vol.Optional(
                         CONF_LIMIT_REFETCH_TO_URL_CHANGE,
                         default=user_input[CONF_LIMIT_REFETCH_TO_URL_CHANGE],
