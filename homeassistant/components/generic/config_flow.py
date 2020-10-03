@@ -38,20 +38,9 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# async def _async_has_devices(hass) -> bool:
-#    """Return if there are devices that can be discovered."""
-#    # TODO Check if there are any devices that can be discovered in the network.
-#    devices = await hass.async_add_executor_job(my_pypi_dependency.discover)
-#    return len(devices) > 0
-
-
-# config_entry_flow.register_discovery_flow(
-#    #   DOMAIN, "generic", _async_has_devices, config_entries.CONN_CLASS_UNKNOWN
-# )
-
 
 class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Example config flow."""
+    """Config flow for generic IP camera."""
 
     def __init__(self):
         """Initialise the config flow."""
