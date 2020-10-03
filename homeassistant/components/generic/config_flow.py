@@ -63,7 +63,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._errors["base"] = "unable_still_load"
             return False
         fmt = imghdr.what(None, h=image)
-        _LOGGER.info(
+        _LOGGER.debug(
             "Still image at '%s' detected format: %s", info[CONF_STILL_IMAGE_URL], fmt
         )
         if fmt is None:
@@ -77,11 +77,12 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 video_stream = container.streams.video[0]
                 if video_stream is not None:
                     return True
+            # requires pylint config: extension-pkg-whitelist=av:
             except av.error.HTTPUnauthorizedError:
                 self._errors["base"] = "stream_unauthorised"
             except (KeyError, IndexError):
                 self._errors["base"] = "stream_novideo"
-            except av.error.OSError as err:
+            except OSError as err:
                 if "No route to host" in str(err):
                     self._errors["base"] = "stream_no_route_to_host"
             return False
