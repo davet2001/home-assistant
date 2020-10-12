@@ -38,6 +38,9 @@ _LOGGER = logging.getLogger(__name__)
 class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for generic IP camera."""
 
+    VERSION = 1
+    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
+
     def __init__(self):
         """Initialise the config flow."""
         super().__init__()
