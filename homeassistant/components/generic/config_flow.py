@@ -76,8 +76,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 video_stream = container.streams.video[0]
                 if video_stream is not None:
                     return True
-            # requires pylint config: extension-pkg-whitelist=av:
-            except av.error.HTTPUnauthorizedError:
+            except av.error.HTTPUnauthorizedError:  # pylint: disable=c-extension-no-member
                 self._errors["base"] = "stream_unauthorised"
             except (KeyError, IndexError):
                 self._errors["base"] = "stream_novideo"
