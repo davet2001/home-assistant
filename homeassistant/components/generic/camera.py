@@ -160,7 +160,7 @@ class GenericCamera(Camera):
                     )
                     return self._last_image
 
-            self._last_image = await self.hass.async_add_job(fetch)
+            self._last_image = await self.hass.async_add_executor_job(fetch)
         # async
         else:
             try:
