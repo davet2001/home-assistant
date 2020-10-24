@@ -72,7 +72,9 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Second level functionality is to get a stream.
         if info.get(CONF_STREAM_SOURCE) not in [None, ""]:
             try:
-                container = av.open(info.get(CONF_STREAM_SOURCE), options=None)
+                container = await self.hass.async_add_executor_job(
+                    av.open(info.get(CONF_STREAM_SOURCE), options=None)
+                )
                 video_stream = container.streams.video[0]
                 if video_stream is not None:
                     return True

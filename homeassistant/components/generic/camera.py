@@ -24,7 +24,7 @@ from homeassistant.const import (
     HTTP_DIGEST_AUTHENTICATION,
 )
 from homeassistant.exceptions import TemplateError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, template as template_helper
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.reload import async_setup_reload_service
 
@@ -84,17 +84,17 @@ class GenericCamera(Camera):
         self.hass = hass
         self._authentication = device_info.get(CONF_AUTHENTICATION)
         self._name = device_info.get(CONF_NAME)
-        strg = device_info[CONF_STILL_IMAGE_URL]
-        if isinstance(strg, str) and strg != "":
-            self._still_image_url = cv.template(device_info[CONF_STILL_IMAGE_URL])
-        else:
-            self._still_image_url = device_info[CONF_STILL_IMAGE_URL]
+        self._still_image_url = device_info[CONF_STILL_IMAGE_URL]
+        if not isinstance(
+            self._still_image_url, template_helper.Template
+        ) and self._still_image_url not in [None, ""]:
+            self._still_image_url = cv.template(self._still_image_url)
         self._still_image_url.hass = hass
-        strg = device_info.get(CONF_STREAM_SOURCE)
-        if isinstance(strg, str) and strg != "":
-            self._stream_source = cv.template(device_info.get(CONF_STREAM_SOURCE))
-        else:
-            self._stream_source = device_info.get(CONF_STREAM_SOURCE)
+        self._stream_source = device_info.get(CONF_STREAM_SOURCE)
+        if not isinstance(
+            self._stream_source, template_helper.Template
+        ) and self._stream_source not in [None, ""]:
+            self._stream_source = cv.template(self._stream_source)
         if self._stream_source not in [None, ""]:
             self._stream_source.hass = hass
         self._limit_refetch = device_info[CONF_LIMIT_REFETCH_TO_URL_CHANGE]
