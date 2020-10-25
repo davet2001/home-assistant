@@ -73,7 +73,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if info.get(CONF_STREAM_SOURCE) not in [None, ""]:
             try:
                 container = await self.hass.async_add_executor_job(
-                    av.open(info.get(CONF_STREAM_SOURCE), options=None)
+                    av.open, info.get(CONF_STREAM_SOURCE)
                 )
                 video_stream = container.streams.video[0]
                 if video_stream is not None:

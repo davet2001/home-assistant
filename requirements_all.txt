@@ -296,6 +296,7 @@ atenpdu==0.3.0
 # homeassistant.components.aurora_abb_powerone
 aurorapy==0.2.6
 
+# homeassistant.components.generic
 # homeassistant.components.stream
 av==8.0.2
 

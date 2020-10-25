@@ -3,5 +3,6 @@
   "name": "Generic IP Camera",
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/integrations/generic_ip_camera",
+  "requirements": ["av==8.0.2"],
   "codeowners": []
 }
