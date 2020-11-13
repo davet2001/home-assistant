@@ -31,7 +31,7 @@
       },
       "user_confirm": {
         "title": "Set up Generic IP Camera",
-        "description": "Preview\n![Camera Still Image Preview](/api/camera_temp_proxy/generic_cf_camera_temp)",
+        "description": "Preview\n![Camera Still Image Preview](/api/camera_temp_proxy/{flow_id})",
         "data": {
           "name": "Device Name",
           "edit_needed": "Go back to connection settings."

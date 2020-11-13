@@ -113,7 +113,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Register a temporary view so that we can preview the image
                 # at the confirmation step.
                 cam = GenericCamera(self.hass, self.user_input)
-                self.hass.http.register_view(CameraImagePreView(cam))
+                self.hass.http.register_view(CameraImagePreView(cam, self.flow_id))
                 # hass.http.register_view(CameraMjpegStream(component))
 
                 return self.async_show_form(
@@ -124,6 +124,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             vol.Required(CONF_EDIT_NEEDED, default=False): bool,
                         }
                     ),
+                    description_placeholders={"flow_id": self.flow_id},
                     errors=self._errors,
                 )
 
@@ -212,16 +213,20 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class CameraImagePreView(CameraImageView):
     """Camera view to temporarily serve an image."""
 
-    url = "/api/camera_temp_proxy/generic_cf_camera_temp"
+    url = "/api/camera_temp_proxy/{flow_id}"
     name = "api:camera:imgepreview"
 
-    def __init__(self, camera: GenericCamera) -> None:
+    def __init__(self, camera: GenericCamera, flow_id: str) -> None:
         """Initialize a basic camera view."""
         self.camera = camera
+        self.flow_id = flow_id
 
-    async def get(self, request: web.Request) -> web.Response:
+    async def get(self, request: web.Request, flow_id) -> web.Response:
         """Start a GET request."""
         camera = self.camera
+
+        if flow_id != self.flow_id:
+            raise web.HTTPNotFound()
 
         if camera is None:
             raise web.HTTPNotFound()
