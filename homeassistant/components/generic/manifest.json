@@ -2,6 +2,7 @@
   "domain": "generic",
   "name": "Generic IP Camera",
   "config_flow": true,
+  "dependencies": ["http", "stream"],
   "documentation": "https://www.home-assistant.io/integrations/generic_ip_camera",
   "codeowners": []
 }

@@ -1,7 +1,7 @@
 {
   "config": {
     "error": {
-      "unknown": "Unexpected error",
+      "unknown": "[%key:common::config_flow::error::unknown%]",
       "still_image_already_configured": "Already configured: A camera with this still image URL is already set up.",
       "unable_still_load": "Unable to load valid image from still image URL (e.g. invalid host, URL or authentication failure.  Review log for more info.",
       "invalid_still_image": "URL did not return a valid still image",
@@ -15,10 +15,9 @@
     },
     "step": {
       "user": {
-        "description": "Enter the settings to connect to the camera.",
+        "description": "Enter connection settings.",
         "data": {
-          "name": "Device Name",
-          "still_image_url": "Still Image URL (e.g. http://...)",
+          "still_image_url": "Still Image URL (e.g. http://...) ",
           "stream_source": "Stream Source URL (e.g. rtsp://...)",
           "authentication": "Authentication",
           "limit_refetch_to_url_change": "Limit refetch to url change",
@@ -26,9 +25,17 @@
           "username": "[%key:common::config_flow::data::username%]",
           "content_type": "Content Type",
           "framerate": "Frame Rate (Hz)",
-          "verify_ssl": "Verify SSL"
+          "verify_ssl": "[%key:common::config_flow::data::verify_ssl%]"
         },
         "title": "Set up Generic IP Camera"
+      },
+      "user_confirm": {
+        "title": "Set up Generic IP Camera",
+        "description": "Preview\n![Camera Still Image Preview](/api/camera_temp_proxy/generic_cf_camera_temp)",
+        "data": {
+          "name": "Device Name",
+          "edit_needed": "Go back to connection settings."
+        }
       },
       "confirm": {
         "description": "[%key:common::config_flow::description::confirm_setup%]"
