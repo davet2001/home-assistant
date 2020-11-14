@@ -52,6 +52,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialise the config flow."""
         super().__init__()
         self._errors = {}
+        self.tempView: CameraImagePreView = None
 
     async def _test_connection(self, info):
         """Verify that the camera data is valid before we add it."""
@@ -113,7 +114,8 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Register a temporary view so that we can preview the image
                 # at the confirmation step.
                 cam = GenericCamera(self.hass, self.user_input)
-                self.hass.http.register_view(CameraImagePreView(cam, self.flow_id))
+                self.tempView = CameraImagePreView(cam, self.flow_id)
+                self.hass.http.register_view(self.tempView)
                 # hass.http.register_view(CameraMjpegStream(component))
 
                 return self.async_show_form(
@@ -166,6 +168,8 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # FIXME if there is any way to unregister the http preview we should
             # do it here e.g. self.hass.http.unregister_view(...)
+            # currently it's not possible (confirmed by baloob 2020-11-13).
+            self.tempView.markInvalid()
             return self.async_create_entry(
                 title=user_input[CONF_NAME], data=self.user_input
             )
@@ -220,10 +224,14 @@ class CameraImagePreView(CameraImageView):
         """Initialize a basic camera view."""
         self.camera = camera
         self.flow_id = flow_id
+        self.valid = True
 
     async def get(self, request: web.Request, flow_id) -> web.Response:
         """Start a GET request."""
         camera = self.camera
+
+        if not self.valid:
+            raise web.HTTPNotFound()
 
         if flow_id != self.flow_id:
             raise web.HTTPNotFound()
@@ -244,3 +252,12 @@ class CameraImagePreView(CameraImageView):
             raise web.HTTPServiceUnavailable()
 
         return await self.handle(request, camera)
+
+    def markInvalid(self):
+        """
+        Mark a view as invalid to stop anyone seeing it.
+
+        Since we can't unregister a view, disable it to prevent unauth
+        access to the video until next HA core restart.
+        """
+        self.valid = False
