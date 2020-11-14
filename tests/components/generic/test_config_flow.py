@@ -28,7 +28,6 @@ from tests.async_mock import Mock, patch
 from tests.common import MockConfigEntry
 
 TESTDATA = {
-    CONF_NAME: "cam1",
     CONF_STILL_IMAGE_URL: "http://127.0.0.1/testurl/1",
     CONF_STREAM_SOURCE: "http://127.0.0.2/testurl/2",
     CONF_AUTHENTICATION: HTTP_BASIC_AUTHENTICATION,
@@ -65,10 +64,15 @@ async def test_form(hass):
             result["flow_id"],
             TESTDATA,
         )
-    assert result2["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result2["title"] == "cam1"
-    assert result2["data"] == {
-        CONF_NAME: "cam1",
+    assert result2["type"] == "form"  #
+
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        {CONF_NAME: "cam1"},
+    )
+    assert result3["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result3["title"] == "cam1"
+    assert result3["data"] == {
         CONF_STILL_IMAGE_URL: "http://127.0.0.1/testurl/1",
         CONF_STREAM_SOURCE: "http://127.0.0.2/testurl/2",
         CONF_AUTHENTICATION: HTTP_BASIC_AUTHENTICATION,
@@ -100,7 +104,6 @@ async def test_form_only_stillimage(hass):
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                CONF_NAME: "cam1",
                 CONF_STILL_IMAGE_URL: "http://127.0.0.1/testurl/1",
                 CONF_AUTHENTICATION: HTTP_BASIC_AUTHENTICATION,
                 CONF_USERNAME: "fred_flintstone",
@@ -111,13 +114,18 @@ async def test_form_only_stillimage(hass):
                 CONF_VERIFY_SSL: False,
             },
         )
-    assert result2["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result2["title"] == "cam1"
-    assert result2["data"] == {
-        CONF_NAME: "cam1",
+    assert result2["type"] == "form"
+
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        {CONF_NAME: "cam1"},
+    )
+    assert result3["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result3["title"] == "cam1"
+    assert result3["data"] == {
         CONF_STILL_IMAGE_URL: "http://127.0.0.1/testurl/1",
-        CONF_AUTHENTICATION: HTTP_BASIC_AUTHENTICATION,
         CONF_STREAM_SOURCE: "",
+        CONF_AUTHENTICATION: HTTP_BASIC_AUTHENTICATION,
         CONF_USERNAME: "fred_flintstone",
         CONF_PASSWORD: "bambam",
         CONF_LIMIT_REFETCH_TO_URL_CHANGE: False,
@@ -255,7 +263,6 @@ async def test_unload_entry(hass):
         mock_entry = MockConfigEntry(
             domain=DOMAIN,
             data={
-                CONF_NAME: "cam1",
                 CONF_STILL_IMAGE_URL: "http://127.0.0.1/testurl/1",
                 CONF_STREAM_SOURCE: "http://127.0.0.2/testurl/2",
                 CONF_AUTHENTICATION: HTTP_BASIC_AUTHENTICATION,
