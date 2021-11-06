@@ -5,6 +5,7 @@ from datetime import timedelta
 import voluptuous as vol
 
 from homeassistant.components.water_heater import (
+    STATE_BOOST,
     STATE_ECO,
     STATE_OFF,
     STATE_ON,
@@ -30,17 +31,19 @@ PARALLEL_UPDATES = 0
 SCAN_INTERVAL = timedelta(seconds=15)
 HIVE_TO_HASS_STATE = {
     "SCHEDULE": STATE_ECO,
+    "BOOST": STATE_BOOST,
     "ON": STATE_ON,
     "OFF": STATE_OFF,
 }
 
 HASS_TO_HIVE_STATE = {
     STATE_ECO: "SCHEDULE",
+    STATE_BOOST: "BOOST",
     STATE_ON: "MANUAL",
     STATE_OFF: "OFF",
 }
 
-SUPPORT_WATER_HEATER = [STATE_ECO, STATE_ON, STATE_OFF]
+SUPPORT_WATER_HEATER = [STATE_ECO, STATE_ON, STATE_OFF, STATE_BOOST]
 
 
 async def async_setup_entry(hass, entry, async_add_entities):

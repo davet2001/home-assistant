@@ -48,6 +48,7 @@ SERVICE_SET_TEMPERATURE = "set_temperature"
 SERVICE_SET_OPERATION_MODE = "set_operation_mode"
 
 STATE_ECO = "eco"
+STATE_BOOST = "boost"
 STATE_ELECTRIC = "electric"
 STATE_PERFORMANCE = "performance"
 STATE_HIGH_DEMAND = "high_demand"
