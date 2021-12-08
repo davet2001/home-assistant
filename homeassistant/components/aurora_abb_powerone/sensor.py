@@ -24,6 +24,7 @@ from homeassistant.const import (
     DEVICE_CLASS_POWER,
     DEVICE_CLASS_TEMPERATURE,
     ENERGY_KILO_WATT_HOUR,
+    ENTITY_CATEGORY_DIAGNOSTIC,
     POWER_WATT,
     TEMP_CELSIUS,
 )
@@ -45,6 +46,7 @@ SENSOR_TYPES = [
     SensorEntityDescription(
         key="temp",
         device_class=DEVICE_CLASS_TEMPERATURE,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
         native_unit_of_measurement=TEMP_CELSIUS,
         state_class=STATE_CLASS_MEASUREMENT,
         name="Temperature",
