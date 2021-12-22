@@ -106,7 +106,7 @@ class RegistryEntry:
     device_id: str | None = attr.ib(default=None)
     domain: str = attr.ib(init=False, repr=False)
     disabled_by: RegistryEntryDisabler | None = attr.ib(default=None)
-    entity_category: EntityCategory | str | None = attr.ib(default=None)
+    _entity_category: EntityCategory | None
     icon: str | None = attr.ib(default=None)
     id: str = attr.ib(factory=uuid_util.random_uuid_hex)
     name: str | None = attr.ib(default=None)
@@ -127,6 +127,22 @@ class RegistryEntry:
         """Return if entry is disabled."""
         return self.disabled_by is not None
 
+    @property
+    def entity_category(self):
+        """Get the entity category."""
+        return self._entity_category
+        
+    @entity_category.setter
+    def entity_category(self, value: EntityCategory):
+        """Check and assign the new entity_category value."""
+        # Handle legacy case (e.g. a string passed) with warning
+        if type(value) is not EntityCategory:
+            _LOGGER.warn("RegistryEntry.entity_category should only be assigned using an enum.  Strings or other assignments are deprecated. value %s is type %s.", value, type(value))
+            # Try to find a valid match assuming it was a string we were given (will raise an exception if not).
+            self._entity_category = EntityCategory[value]
+            return
+        self._entity_category = value
+        
     @callback
     def write_unavailable_state(self, hass: HomeAssistant) -> None:
         """Write the unavailable state to the state machine."""
