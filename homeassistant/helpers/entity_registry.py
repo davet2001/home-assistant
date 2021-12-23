@@ -1,4 +1,4 @@
-"""Provide a registry to track entity IDs.
+"""Provide a registry to track entity IDs. 
 
 The Entity Registry keeps a registry of entities. Entities are uniquely
 identified by their domain, platform and a unique id provided by that platform.
