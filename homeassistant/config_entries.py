@@ -1159,11 +1159,6 @@ class ConfigEntries:
         return {"entries": [entry.as_dict() for entry in self._entries.values()]}
 
 
-async def _old_conf_migrator(old_config: dict[str, Any]) -> dict[str, Any]:
-    """Migrate the pre-0.73 config format to the latest version."""
-    return {"entries": old_config}
-
-
 class ConfigFlow(data_entry_flow.FlowHandler):
     """Base class for config flows with some helpers."""
 
