@@ -900,12 +900,6 @@ class ConfigEntries:
 
     async def async_initialize(self) -> None:
         """Initialize config entry config."""
-        # Migrating for config entries stored before 0.73
-        config = await self.hass.helpers.storage.async_migrator(
-            self.hass.config.path(PATH_CONFIG),
-            self._store,
-            old_conf_migrate_func=_old_conf_migrator,
-        )
 
         self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self._async_shutdown)
 
