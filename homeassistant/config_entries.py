@@ -74,9 +74,6 @@ HANDLERS = Registry()
 STORAGE_KEY = "core.config_entries"
 STORAGE_VERSION = 1
 
-# Deprecated since 0.73
-PATH_CONFIG = ".config_entries.json"
-
 SAVE_DELAY = 1
 
 
