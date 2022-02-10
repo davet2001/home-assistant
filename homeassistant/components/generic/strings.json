@@ -20,10 +20,8 @@
       "user": {
         "description": "Enter the settings to connect to the camera.",
         "data": {
-          "name": "Device Name",
-          "still_image_url": "Still Image URL (e.g. http://...)",
+          "still_image_url": "Still Image URL (e.g. http://...) ",
           "stream_source": "Stream Source URL (e.g. rtsp://...)",
-          "rtsp_transport": "RTSP transport protocol",
           "authentication": "Authentication",
           "limit_refetch_to_url_change": "Limit refetch to url change",
           "password": "[%key:common::config_flow::data::password%]",
@@ -33,6 +31,14 @@
           "verify_ssl": "[%key:common::config_flow::data::verify_ssl%]"
         },
         "title": "Set up Generic IP Camera"
+      },
+      "user_confirm": {
+        "title": "Set up Generic IP Camera",
+        "description": "Preview\n![Camera Still Image Preview](/api/camera_temp_proxy/{flow_id}/{flow_id})",
+        "data": {
+          "confirmed_ok": "Everything looks ok.",
+          "name": "Device Name"
+        }
       },
       "confirm": {
         "description": "[%key:common::config_flow::description::confirm_setup%]"

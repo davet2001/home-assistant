@@ -6,10 +6,16 @@ import imghdr
 import logging
 from typing import Any
 
+from aiohttp import web
 import av
 import voluptuous as vol
 
 from homeassistant import config_entries, data_entry_flow
+from homeassistant.components.camera import (
+    DEFAULT_CONTENT_TYPE,
+    SCAN_INTERVAL,
+    CameraImageView,
+)
 from homeassistant.components.stream.const import SOURCE_TIMEOUT
 from homeassistant.const import (
     CONF_AUTHENTICATION,
@@ -20,8 +26,10 @@ from homeassistant.const import (
     HTTP_BASIC_AUTHENTICATION,
     HTTP_DIGEST_AUTHENTICATION,
 )
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_component import EntityComponent
 
-from .camera import DEFAULT_CONTENT_TYPE, GenericCamera
+from .camera import GenericCamera
 
 # pylint: disable=unused-import
 from .const import (
@@ -31,10 +39,13 @@ from .const import (
     CONF_RTSP_TRANSPORT,
     CONF_STILL_IMAGE_URL,
     CONF_STREAM_SOURCE,
+    DEFAULT_LIMIT_REFETCH_TO_URL_CHANGE,
     DEFAULT_NAME,
     DOMAIN,
     FFMPEG_OPTION_MAP,
 )
+
+CONF_CONFIRMED_OK = "confirmed_ok"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +64,13 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
+
+    def __init__(self):
+        """Initialise the config flow."""
+        super().__init__()
+        self._errors = {}
+        self.device_config = None
+        self.temp_view: CameraImagePreView = None
 
     async def _test_connection(self, info) -> tuple[bool, str]:
         """Verify that the camera data is valid before we add it."""
@@ -135,7 +153,6 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def build_schema(user_input):
         """Create schema for camera config setup."""
         spec = {
-            vol.Optional(CONF_NAME, default=user_input[CONF_NAME]): str,
             vol.Optional(
                 CONF_STILL_IMAGE_URL,
                 description={
@@ -147,7 +164,8 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 description={"suggested_value": user_input.get(CONF_STREAM_SOURCE, "")},
             ): str,
             vol.Optional(
-                CONF_RTSP_TRANSPORT, default=user_input.get(CONF_RTSP_TRANSPORT)
+                CONF_RTSP_TRANSPORT,
+                description={"suggested_value": user_input.get(CONF_RTSP_TRANSPORT)},
             ): vol.In([None, "tcp", "udp", "udp_multicast", "http"]),
             vol.Optional(
                 CONF_AUTHENTICATION, default=user_input.get(CONF_AUTHENTICATION)
@@ -162,7 +180,10 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ): str,
             vol.Optional(
                 CONF_LIMIT_REFETCH_TO_URL_CHANGE,
-                default=user_input.get(CONF_LIMIT_REFETCH_TO_URL_CHANGE),
+                default=user_input.get(
+                    CONF_LIMIT_REFETCH_TO_URL_CHANGE,
+                    DEFAULT_LIMIT_REFETCH_TO_URL_CHANGE,
+                ),
             ): bool,
             vol.Optional(
                 CONF_CONTENT_TYPE, default=user_input.get(CONF_CONTENT_TYPE)
@@ -183,6 +204,7 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the start of the config flow."""
         errors = {}
         if user_input is not None:
+            self.device_config = user_input
             # Secondary validation because serialised vol can't seem to handle this complexity:
             if user_input.get(CONF_STILL_IMAGE_URL) in [None, ""] and user_input.get(
                 CONF_STREAM_SOURCE
@@ -191,16 +213,53 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 (res, errors["base"]) = await self._test_connection(user_input)
                 if res:
-                    return self.async_create_entry(
-                        title=user_input[CONF_NAME], data=user_input
-                    )
-        else:
-            user_input = DEFAULT_DATA.copy()
+                    # Register a temporary view so that we can preview the image
+                    # at the confirmation step.
+                    cam = GenericCamera(self.hass, user_input, self.flow_id)
+                    self.temp_view = CameraImagePreView(self.hass, cam, self.flow_id)
+                    self.hass.http.register_view(self.temp_view)
+                    # hass.http.register_view(CameraMjpegStream(component))
 
+                    return self.async_show_form(
+                        step_id="user_confirm",
+                        data_schema=vol.Schema(
+                            {
+                                vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
+                                vol.Required(CONF_CONFIRMED_OK, default=False): bool,
+                            }
+                        ),
+                        description_placeholders={"flow_id": self.flow_id},
+                        errors=self._errors,
+                    )
+
+        if self.device_config is None:
+            self.device_config = DEFAULT_DATA.copy()
         return self.async_show_form(
             step_id="user",
-            data_schema=self.build_schema(user_input),
+            data_schema=self.build_schema(self.device_config),
             errors=errors,
+        )
+
+    async def async_step_user_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> data_entry_flow.FlowResult:
+        """Handle the confirmation step of the config flow."""
+        errors: dict[str, str] = {}
+
+        if user_input is None or user_input.get(CONF_CONFIRMED_OK) is False:
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self.build_schema(self.device_config),
+                errors=errors,
+            )
+
+        # if there is any way to unregister the http preview we should
+        # do it here e.g. self.hass.http.unregister_view(...)
+        # currently it's not possible (confirmed by baloob 2020-11-13).
+        self.temp_view.mark_invalid()
+        self.device_config[CONF_NAME] = user_input[CONF_NAME]
+        return self.async_create_entry(
+            title=user_input[CONF_NAME], data=self.device_config
         )
 
     async def async_step_import(self, import_config):
@@ -219,3 +278,52 @@ class GenericIPCamConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             err,
         )
         return self.async_abort(reason=err)
+
+
+class CameraImagePreView(CameraImageView):
+    """Camera view to temporarily serve an image."""
+
+    name = "api:camera:imgepreview"
+
+    def __init__(
+        self, hass: HomeAssistant, camera: GenericCamera, entity_id: str
+    ) -> None:
+        """Initialize a basic camera view."""
+        self.camera = camera
+        self.entity_id = entity_id
+        _LOGGER.debug("Adding temporary camera preview '%s'", entity_id)
+        # entity_id twice in the url is deliberate.  We want to follow the format
+        # of the existing CameraImageView but, we also want to create a preview
+        # that will proxy this camera only, rather than a general
+        # view that could proxy many cameras
+        self.url = "/api/camera_temp_proxy/%s/{entity_id}" % entity_id
+        self.valid = True
+        component = EntityComponent(_LOGGER, DOMAIN, hass, SCAN_INTERVAL)
+        super().__init__(component)
+
+    async def get(self, request: web.Request, entity_id) -> web.Response:
+        """Start a GET request."""
+        camera = self.camera
+
+        if not self.valid:
+            _LOGGER.warning("Not valid")
+            raise web.HTTPNotFound()
+
+        if camera is None:
+            _LOGGER.warning("No camera")
+            raise web.HTTPNotFound()
+
+        if not camera.is_on:
+            _LOGGER.debug("Camera is off")
+            raise web.HTTPServiceUnavailable()
+
+        return await self.handle(request, camera)
+
+    def mark_invalid(self):
+        """
+        Mark a view as invalid to stop anyone seeing it.
+
+        Since we can't unregister a view, disable it to prevent unauth
+        access to the video until next HA core restart.
+        """
+        self.valid = False
