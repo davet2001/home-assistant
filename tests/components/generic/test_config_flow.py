@@ -255,7 +255,7 @@ async def test_form_image_timeout(hass, mock_av_open, user_flow):
 
 
 @respx.mock
-async def test_form_long_url(hass, fakeimgbytes_png, user_flow):
+async def test_form_long_url(hass, hass_client, fakeimgbytes_png, user_flow):
     """Test we we handle very long URLs sensibly #69273."""
     LONG_URL = (
         "http://127.0.0.1/testurl/a_really_really_really_really_really_really_"
@@ -263,32 +263,28 @@ async def test_form_long_url(hass, fakeimgbytes_png, user_flow):
         "really_really_really_really_really_really_really_really_really_"
         "really_really_really_really_really_really_really_really_really_"
         "really_really_really_really_really_really_really_really_really_"
-        "really_really_really_really_really_really_really_really_really_"
-        "really_really_really_really_really_really_really_really_really_"
         "really_really_really_really_really_really_really_long_url"
     )
-    respx.get(LONG_URL + "3").respond(stream=fakeimgbytes_png)
-
-    data = TESTDATA.copy()
-    data.pop(CONF_STREAM_SOURCE)
-    data[CONF_STILL_IMAGE_URL] = LONG_URL + "{{int(6/2)}}"
-    result2 = await hass.config_entries.flow.async_configure(
-        user_flow["flow_id"],
-        data,
-    )
-    assert result2["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result2["title"] == (
+    LONG_TITLE = (
         "127_0_0_1_testurl_a_really_really_really_really_really_really_"
         "really_really_really_really_really_really_really_really_really_"
         "really_really_really_really_really_really_really_really_really_"
         "really_really_really_really_really_really_really_really_really_"
         "really_really_really_really_really_really_really_really_really_"
-        "really_really_really_really_really_really_really_really_really_"
-        "really_really_really_really_really_really_really_really_really_"
-        "really_really_really_really_really_really_really_long_url_int_6_2"
+        "really_really_really_really_really_really_really_long_url"
     )
+    respx.get(LONG_URL).respond(stream=fakeimgbytes_png)
+    data = TESTDATA.copy()
+    data.pop(CONF_STREAM_SOURCE)
+    data[CONF_STILL_IMAGE_URL] = LONG_URL
+    result2 = await hass.config_entries.flow.async_configure(
+        user_flow["flow_id"],
+        data,
+    )
+    assert result2["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result2["title"] == LONG_TITLE
     assert result2["options"] == {
-        CONF_STILL_IMAGE_URL: LONG_URL + "{{int(6/2)}}",
+        CONF_STILL_IMAGE_URL: LONG_URL,
         CONF_AUTHENTICATION: HTTP_BASIC_AUTHENTICATION,
         CONF_USERNAME: "fred_flintstone",
         CONF_PASSWORD: "bambam",
@@ -297,9 +293,13 @@ async def test_form_long_url(hass, fakeimgbytes_png, user_flow):
         CONF_FRAMERATE: 5,
         CONF_VERIFY_SSL: False,
     }
-
     await hass.async_block_till_done()
-    assert respx.calls.call_count == 1
+
+    client = await hass_client()
+    entity_id = "camera." + LONG_TITLE
+    resp = await client.get("/api/camera_proxy/" + entity_id)  # [:252])
+    assert await resp.read() == fakeimgbytes_png
+    assert respx.calls.call_count == 2
 
 
 @respx.mock
