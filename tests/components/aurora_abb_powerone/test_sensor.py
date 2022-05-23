@@ -147,7 +147,7 @@ async def test_sensor_dark(hass):
         "aurorapy.client.AuroraSerialClient.cumulated_energy",
         side_effect=_simulated_returns,
     ):
-        async_fire_time_changed(hass, utcnow + SCAN_INTERVAL)
+        async_fire_time_changed(hass, utcnow + SCAN_INTERVAL * 3)
         await hass.async_block_till_done()
         power = hass.states.get("sensor.power_output")
         assert power is not None
@@ -160,7 +160,7 @@ async def test_sensor_dark(hass):
         "aurorapy.client.AuroraSerialClient.cumulated_energy",
         side_effect=AuroraError("No response after 10 seconds"),
     ):
-        async_fire_time_changed(hass, utcnow + SCAN_INTERVAL)
+        async_fire_time_changed(hass, utcnow + SCAN_INTERVAL * 5)
         await hass.async_block_till_done()
         power = hass.states.get("sensor.power_output")
         assert power.state == "unknown"
