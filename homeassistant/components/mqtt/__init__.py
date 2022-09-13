@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import dataclass
-import datetime as dt
 import logging
 from typing import Any, cast
 
@@ -22,10 +20,20 @@ from homeassistant.const import (
     CONF_USERNAME,
     SERVICE_RELOAD,
 )
-from homeassistant.core import HassJob, HomeAssistant, ServiceCall, callback
-from homeassistant.data_entry_flow import BaseServiceInfo
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    HassJob,
+    HomeAssistant,
+    ServiceCall,
+    callback,
+)
 from homeassistant.exceptions import TemplateError, Unauthorized
-from homeassistant.helpers import config_validation as cv, event, template
+from homeassistant.helpers import (
+    config_validation as cv,
+    discovery_flow,
+    event,
+    template,
+)
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.reload import (
@@ -66,9 +74,11 @@ from .const import (  # noqa: F401
     CONFIG_ENTRY_IS_SETUP,
     DATA_MQTT,
     DATA_MQTT_CONFIG,
+    DATA_MQTT_DISCOVERY_REGISTRY_HOOKS,
     DATA_MQTT_RELOAD_DISPATCHERS,
     DATA_MQTT_RELOAD_ENTRY,
     DATA_MQTT_RELOAD_NEEDED,
+    DATA_MQTT_SUBSCRIPTIONS_TO_RESTORE,
     DATA_MQTT_UPDATED_CONFIG,
     DEFAULT_ENCODING,
     DEFAULT_QOS,
@@ -110,6 +120,16 @@ CONNECTION_SUCCESS = "connection_success"
 CONNECTION_FAILED = "connection_failed"
 CONNECTION_FAILED_RECOVERABLE = "connection_failed_recoverable"
 
+CONFIG_ENTRY_CONFIG_KEYS = [
+    CONF_BIRTH_MESSAGE,
+    CONF_BROKER,
+    CONF_DISCOVERY,
+    CONF_PASSWORD,
+    CONF_PORT,
+    CONF_USERNAME,
+    CONF_WILL_MESSAGE,
+]
+
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: vol.All(
@@ -145,18 +165,6 @@ MQTT_PUBLISH_SCHEMA = vol.All(
 )
 
 
-@dataclass
-class MqttServiceInfo(BaseServiceInfo):
-    """Prepared info from mqtt entries."""
-
-    topic: str
-    payload: ReceivePayloadType
-    qos: int
-    retain: bool
-    subscribed_topic: str
-    timestamp: dt.datetime
-
-
 async def _async_setup_discovery(
     hass: HomeAssistant, conf: ConfigType, config_entry
 ) -> None:
@@ -183,12 +191,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         # Create an import flow if the user has yaml configured entities etc.
         # but no broker configuration. Note: The intention is not for this to
         # import broker configuration from YAML because that has been deprecated.
-        hass.async_create_task(
-            hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": config_entries.SOURCE_INTEGRATION_DISCOVERY},
-                data={},
-            )
+        discovery_flow.async_create_flow(
+            hass,
+            DOMAIN,
+            context={"source": config_entries.SOURCE_INTEGRATION_DISCOVERY},
+            data={},
         )
         hass.data[DATA_MQTT_RELOAD_NEEDED] = True
     elif mqtt_entry_status is False:
@@ -198,6 +205,23 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DATA_MQTT_RELOAD_NEEDED] = True
 
     return True
+
+
+def _filter_entry_config(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove unknown keys from config entry data.
+
+    Extra keys may have been added when importing MQTT yaml configuration.
+    """
+    filtered_data = {
+        k: entry.data[k] for k in CONFIG_ENTRY_CONFIG_KEYS if k in entry.data
+    }
+    if entry.data.keys() != filtered_data.keys():
+        _LOGGER.warning(
+            "The following unsupported configuration options were removed from the "
+            "MQTT config entry: %s. Add them to configuration.yaml if they are needed",
+            entry.data.keys() - filtered_data.keys(),
+        )
+        hass.config_entries.async_update_entry(entry, data=filtered_data)
 
 
 def _merge_basic_config(
@@ -258,6 +282,10 @@ async def async_fetch_config(hass: HomeAssistant, entry: ConfigEntry) -> dict | 
         mqtt_config = CONFIG_SCHEMA_BASE(hass_config.get(DOMAIN, {}))
         hass.data[DATA_MQTT_CONFIG] = mqtt_config
 
+    # Remove unknown keys from config entry data
+    _filter_entry_config(hass, entry)
+
+    # Merge basic configuration, and add missing defaults for basic options
     _merge_basic_config(hass, entry, hass.data.get(DATA_MQTT_CONFIG, {}))
     # Bail out if broker setting is missing
     if CONF_BROKER not in entry.data:
@@ -294,7 +322,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Bail out
         return False
 
+    hass.data[DATA_MQTT_DISCOVERY_REGISTRY_HOOKS] = {}
     hass.data[DATA_MQTT] = MQTT(hass, entry, conf)
+    # Restore saved subscriptions
+    if DATA_MQTT_SUBSCRIPTIONS_TO_RESTORE in hass.data:
+        hass.data[DATA_MQTT].subscriptions = hass.data.pop(
+            DATA_MQTT_SUBSCRIPTIONS_TO_RESTORE
+        )
     entry.add_update_listener(_async_config_entry_updated)
 
     await hass.data[DATA_MQTT].async_connect()
@@ -418,6 +452,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def async_forward_entry_setup_and_setup_discovery(config_entry):
         """Forward the config entry setup to the platforms and set up discovery."""
+        reload_manual_setup: bool = False
         # Local import to avoid circular dependencies
         # pylint: disable-next=import-outside-toplevel
         from . import device_automation, tag
@@ -440,8 +475,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await _async_setup_discovery(hass, conf, entry)
         # Setup reload service after all platforms have loaded
         await async_setup_reload_service()
+        # When the entry is reloaded, also reload manual set up items to enable MQTT
+        if DATA_MQTT_RELOAD_ENTRY in hass.data:
+            hass.data.pop(DATA_MQTT_RELOAD_ENTRY)
+            reload_manual_setup = True
+
+        # When the entry was disabled before, reload manual set up items to enable MQTT again
         if DATA_MQTT_RELOAD_NEEDED in hass.data:
             hass.data.pop(DATA_MQTT_RELOAD_NEEDED)
+            reload_manual_setup = True
+
+        if reload_manual_setup:
             await async_reload_manual_mqtt_items(hass)
 
     await async_forward_entry_setup_and_setup_discovery(entry)
@@ -593,8 +637,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mqtt_client.cleanup()
 
     # Trigger reload manual MQTT items at entry setup
-    # Reload the legacy yaml platform
-    await async_reload_integration_platforms(hass, DOMAIN, RELOADABLE_PLATFORMS)
     if (mqtt_entry_status := mqtt_config_entry_enabled(hass)) is False:
         # The entry is disabled reload legacy manual items when the entry is enabled again
         hass.data[DATA_MQTT_RELOAD_NEEDED] = True
@@ -602,7 +644,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # The entry is reloaded:
         # Trigger re-fetching the yaml config at entry setup
         hass.data[DATA_MQTT_RELOAD_ENTRY] = True
-    # Stop the loop
+    # Reload the legacy yaml platform to make entities unavailable
+    await async_reload_integration_platforms(hass, DOMAIN, RELOADABLE_PLATFORMS)
+    # Cleanup entity registry hooks
+    registry_hooks: dict[tuple, CALLBACK_TYPE] = hass.data[
+        DATA_MQTT_DISCOVERY_REGISTRY_HOOKS
+    ]
+    while registry_hooks:
+        registry_hooks.popitem()[1]()
+    # Wait for all ACKs and stop the loop
     await mqtt_client.async_disconnect()
+    # Store remaining subscriptions to be able to restore or reload them
+    # when the entry is set up again
+    if mqtt_client.subscriptions:
+        hass.data[DATA_MQTT_SUBSCRIPTIONS_TO_RESTORE] = mqtt_client.subscriptions
 
     return True

@@ -1,5 +1,6 @@
 {
     "config": {
+        "flow_title": "{name} ({ip_address})",
         "step": {
             "discovery_confirm": {
                 "data": {
@@ -18,6 +19,15 @@
                     "password": "Palavra-passe",
                     "port": "Porta",
                     "verify_ssl": "Verificar o certificado SSL"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "max_media": "N\u00famero m\u00e1ximo de eventos a serem carregados para o Media Browser (aumenta o uso de RAM)"
                 }
             }
         }

@@ -9,8 +9,16 @@
         "step": {
             "user": {
                 "data": {
-                    "host": "Servidor"
+                    "host": "Servidor",
+                    "port": "Porta"
                 }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "configure_device": {
+                "title": "Precis\u00e3o do Sensor OneWire"
             }
         }
     }
