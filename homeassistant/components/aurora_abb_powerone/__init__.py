@@ -59,6 +59,7 @@ class AuroraAbbDataUpdateCoordinator(DataUpdateCoordinator):
         self.available_prev: bool = False
         self.available: bool = False
         self.client = AuroraSerialClient(address, comport, parity="N", timeout=1)
+        self.client.connect()
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
 
     async def _async_update_data(self) -> dict[str, float]:
@@ -69,7 +70,6 @@ class AuroraAbbDataUpdateCoordinator(DataUpdateCoordinator):
         data: dict[str, float] = {}
         try:
             self.available_prev = self.available
-            self.client.connect()
 
             # read ADC channel 3 (grid power output)
             power_watts = self.client.measure(3, True)
@@ -100,7 +100,5 @@ class AuroraAbbDataUpdateCoordinator(DataUpdateCoordinator):
                         "Communication with %s lost",
                         self.name,
                     )
-            if self.client.serline.isOpen():
-                self.client.close()
 
         return data
