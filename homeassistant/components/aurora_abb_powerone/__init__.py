@@ -7,10 +7,14 @@
 # Developer note:
 # vscode devcontainer: use the following to access USB device:
 # "runArgs": ["-e", "GIT_EDITOR=code --wait", "--device=/dev/ttyUSB0"],
+# and add the following to the end of script/bootstrap:
+# sudo chmod 777 /dev/ttyUSB0
 
 import logging
+from time import sleep
 
 from aurorapy.client import AuroraError, AuroraSerialClient, AuroraTimeoutError
+from serial import SerialException
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_PORT, Platform
@@ -67,40 +71,52 @@ class AuroraAbbDataUpdateCoordinator(DataUpdateCoordinator):
         This is the only function that should fetch new data for Home Assistant.
         """
         data: dict[str, float] = {}
-        try:
-            self.available_prev = self.available
-            self.client.connect()
+        retries: int = 3
+        while retries > 0:
+            try:
+                self.available_prev = self.available
+                self.client.connect()
 
-            # read ADC channel 3 (grid power output)
-            power_watts = self.client.measure(3, True)
-            data["instantaneouspower"] = round(power_watts, 1)
+                # read ADC channel 3 (grid power output)
+                power_watts = self.client.measure(3, True)
+                data["instantaneouspower"] = round(power_watts, 1)
 
-            temperature_c = self.client.measure(21)
-            data["temp"] = round(temperature_c, 1)
+                temperature_c = self.client.measure(21)
+                data["temp"] = round(temperature_c, 1)
 
-            energy_wh = self.client.cumulated_energy(5)
-            data["totalenergy"] = round(energy_wh / 1000, 2)
-            self.available = True
+                energy_wh = self.client.cumulated_energy(5)
+                data["totalenergy"] = round(energy_wh / 1000, 2)
+                self.available = True
+                self.data = data
+                retries = 0
+            except AuroraTimeoutError:
+                self.data = {}
+                self.available = False
+                _LOGGER.debug("No response from inverter (could be dark)")
+                retries = 0
+            except AuroraError as error:
+                self.data = {}
+                self.available = False
+                retries = 0
+                raise error
+            except SerialException as ex:
+                retries -= 1
+                _LOGGER.warning(
+                    "Exception: %s occurred, %d retries remaining", retries, repr(ex)
+                )
+                sleep(1)
 
-        except AuroraTimeoutError:
-            data = {}
-            self.available = False
-            _LOGGER.debug("No response from inverter (could be dark)")
-        except AuroraError as error:
-            data = {}
-            self.available = False
-            raise error
-        finally:
-            if self.available != self.available_prev:
-                if self.available:
-                    _LOGGER.info("Communication with %s back online", self.name)
-                else:
-                    _LOGGER.warning(
-                        "Communication with %s lost",
-                        self.name,
-                    )
-            if self.client.serline.isOpen():
-                self.client.close()
+            finally:
+                if self.available != self.available_prev:
+                    if self.available:
+                        _LOGGER.info("Communication with %s back online", self.name)
+                    else:
+                        _LOGGER.warning(
+                            "Communication with %s lost",
+                            self.name,
+                        )
+                if self.client.serline.isOpen():
+                    self.client.close()
 
         return data
 
