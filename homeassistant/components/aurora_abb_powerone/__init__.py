@@ -94,15 +94,12 @@ class AuroraAbbDataUpdateCoordinator(DataUpdateCoordinator):
                 self.available = False
                 _LOGGER.debug("No response from inverter (could be dark)")
                 retries = 0
-            except AuroraError as error:
+            except (SerialException, AuroraError) as ex:
                 self.data = {}
                 self.available = False
-                retries = 0
-                raise error
-            except SerialException as ex:
                 retries -= 1
                 _LOGGER.warning(
-                    "Exception: %s occurred, %d retries remaining", retries, repr(ex)
+                    "Exception: %s occurred, %d retries remaining", repr(ex), retries
                 )
                 sleep(1)
 
