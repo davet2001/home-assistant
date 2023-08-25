@@ -83,9 +83,9 @@ class AuroraAbbDataUpdateCoordinator(DataUpdateCoordinator[dict[str, float]]):
             self.available = False
             raise error
         else:
-            data["instantaneouspower"] = round(power_watts, 1)
-            data["temp"] = round(temperature_c, 1)
-            data["totalenergy"] = round(energy_wh / 1000, 2)
+            data["instantaneouspower"] = power_watts
+            data["temp"] = temperature_c
+            data["totalenergy"] = energy_wh
             self.available = True
 
         finally:
