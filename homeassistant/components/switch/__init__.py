@@ -45,11 +45,7 @@ class SwitchDeviceClass(StrEnum):
 
 DEVICE_CLASSES_SCHEMA = vol.All(vol.Lower, vol.Coerce(SwitchDeviceClass))
 
-# DEVICE_CLASS* below are deprecated as of 2021.12
-# use the SwitchDeviceClass enum instead.
 DEVICE_CLASSES = [cls.value for cls in SwitchDeviceClass]
-DEVICE_CLASS_OUTLET = SwitchDeviceClass.OUTLET.value
-DEVICE_CLASS_SWITCH = SwitchDeviceClass.SWITCH.value
 
 # mypy: disallow-any-generics
 
