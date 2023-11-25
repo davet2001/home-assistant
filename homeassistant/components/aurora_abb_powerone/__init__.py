@@ -11,8 +11,10 @@
 # sudo chmod 777 /dev/ttyUSB0
 
 import logging
+from time import sleep
 
 from aurorapy.client import AuroraError, AuroraSerialClient, AuroraTimeoutError
+from serial import SerialException
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_PORT, Platform
@@ -69,36 +71,43 @@ class AuroraAbbDataUpdateCoordinator(DataUpdateCoordinator[dict[str, float]]):
         """
         data: dict[str, float] = {}
         self.available_prev = self.available
-        try:
-            self.client.connect()
+        retries: int = 3
+        while retries > 0:
+            try:
+                self.client.connect()
 
-            # read ADC channel 3 (grid power output)
-            power_watts = self.client.measure(3, True)
-            temperature_c = self.client.measure(21)
-            energy_wh = self.client.cumulated_energy(5)
-        except AuroraTimeoutError:
-            self.available = False
-            _LOGGER.debug("No response from inverter (could be dark)")
-        except AuroraError as error:
-            self.available = False
-            raise error
-        else:
-            data["instantaneouspower"] = round(power_watts, 1)
-            data["temp"] = round(temperature_c, 1)
-            data["totalenergy"] = round(energy_wh / 1000, 2)
-            self.available = True
-
-        finally:
-            if self.available != self.available_prev:
-                if self.available:
-                    _LOGGER.info("Communication with %s back online", self.name)
-                else:
-                    _LOGGER.warning(
-                        "Communication with %s lost",
-                        self.name,
-                    )
-            if self.client.serline.isOpen():
-                self.client.close()
+                # read ADC channel 3 (grid power output)
+                power_watts = self.client.measure(3, True)
+                temperature_c = self.client.measure(21)
+                energy_wh = self.client.cumulated_energy(5)
+            except AuroraTimeoutError:
+                self.available = False
+                _LOGGER.debug("No response from inverter (could be dark)")
+                retries = 0
+            except (SerialException, AuroraError) as error:
+                self.available = False
+                retries -= 1
+                _LOGGER.warning(
+                    "Exception: %s occurred, %d retries remaining", repr(error), retries
+                )
+                sleep(1)
+            else:
+                data["instantaneouspower"] = round(power_watts, 1)
+                data["temp"] = round(temperature_c, 1)
+                data["totalenergy"] = round(energy_wh / 1000, 2)
+                self.available = True
+                retries = 0
+            finally:
+                if self.available != self.available_prev:
+                    if self.available:
+                        _LOGGER.info("Communication with %s back online", self.name)
+                    else:
+                        _LOGGER.warning(
+                            "Communication with %s lost",
+                            self.name,
+                        )
+                if self.client.serline.isOpen():
+                    self.client.close()
 
         return data
 
