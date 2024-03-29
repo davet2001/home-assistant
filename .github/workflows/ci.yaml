@@ -31,10 +31,12 @@ on:
         description: "Only run mypy"
         default: false
         type: boolean
-      audit-licenses-only:
-        description: "Only run audit licenses"
-        default: false
-        type: boolean
+  workflow_call:
+    outputs:
+      default_python_version:
+        value: ${{ jobs.base.outputs.python_version }}
+      python_cache_key:
+        value: ${{ jobs.info.outputs.python_cache_key }}
 
 env:
   CACHE_VERSION: 8
@@ -423,8 +425,8 @@ jobs:
 
   base:
     name: Prepare dependencies
-    runs-on: *runs-on-ubuntu
-    needs: [info]
+    runs-on: ubuntu-22.04
+    needs: info
     timeout-minutes: 60
     strategy:
       matrix:
