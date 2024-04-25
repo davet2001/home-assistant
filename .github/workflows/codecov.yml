@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v4.1.2
+        uses: actions/checkout@v4.1.4
       - name: Generate partial Python venv restore key
         id: generate_python_cache_key
         run: >-
@@ -197,7 +197,7 @@ jobs:
         python-version: ${{ fromJSON(needs.info.outputs.python_versions) }}
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v4.1.2
+        uses: actions/checkout@v4.1.4
       - name: Set up Python ${{ matrix.python-version }}
         id: python
         uses: actions/setup-python@v5.1.0
@@ -265,7 +265,7 @@ jobs:
       changes: ${{ steps.detect.outputs.changes }}
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v4.1.2
+        uses: actions/checkout@v4.1.4
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         id: python
         uses: actions/setup-python@v5.0.0
