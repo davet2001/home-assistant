@@ -6,7 +6,6 @@ import asyncio
 from collections.abc import Mapping
 import contextlib
 from datetime import datetime
-from errno import EHOSTUNREACH, EIO
 import io
 import logging
 from typing import Any
@@ -17,19 +16,13 @@ import PIL.Image
 import voluptuous as vol
 import yarl
 
-from homeassistant.components.camera import (
-    CAMERA_IMAGE_TIMEOUT,
-    DynamicStreamSettings,
-    _async_get_image,
-)
+from homeassistant.components.camera import CAMERA_IMAGE_TIMEOUT, _async_get_image
 from homeassistant.components.http.view import HomeAssistantView
 from homeassistant.components.stream import (
     CONF_RTSP_TRANSPORT,
     CONF_USE_WALLCLOCK_AS_TIMESTAMPS,
     HLS_PROVIDER,
     RTSP_TRANSPORTS,
-    SOURCE_TIMEOUT,
-    create_stream,
 )
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -48,7 +41,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import UnknownFlow
-from homeassistant.exceptions import TemplateError
+from homeassistant.exceptions import HomeAssistantError, TemplateError
 from homeassistant.helpers import config_validation as cv, template as template_helper
 from homeassistant.helpers.httpx_client import get_async_client
 from homeassistant.util import slugify
@@ -89,11 +82,21 @@ def build_schema(
     spec = {
         vol.Optional(
             CONF_STILL_IMAGE_URL,
-            description={"suggested_value": user_input.get(CONF_STILL_IMAGE_URL, "")},
+            description={
+                "suggested_value": user_input.get(
+                    CONF_STILL_IMAGE_URL,
+                    "https://upload.wikimedia.org/wikipedia/commons/0/01/Brick.jpg",
+                )
+            },
         ): str,
         vol.Optional(
             CONF_STREAM_SOURCE,
-            description={"suggested_value": user_input.get(CONF_STREAM_SOURCE, "")},
+            description={
+                "suggested_value": user_input.get(
+                    CONF_STREAM_SOURCE,
+                    "rtsp://rtspstream:18bd8def48da5948dc478cf1de828c3a@zephyr.rtsp.stream/pattern",
+                )
+            },
         ): str,
         vol.Optional(
             CONF_RTSP_TRANSPORT,
@@ -241,7 +244,6 @@ async def async_test_stream(
     # Import from stream.worker as stream cannot reexport from worker
     # without forcing the av dependency on default_config
     # pylint: disable-next=import-outside-toplevel
-    from homeassistant.components.stream.worker import StreamWorkerError
 
     if not isinstance(stream_source, template_helper.Template):
         stream_source = template_helper.Template(stream_source, hass)
@@ -256,42 +258,42 @@ async def async_test_stream(
     if info.get(CONF_USE_WALLCLOCK_AS_TIMESTAMPS):
         stream_options[CONF_USE_WALLCLOCK_AS_TIMESTAMPS] = True
 
-    try:
-        url = yarl.URL(stream_source)
-    except ValueError:
-        return {CONF_STREAM_SOURCE: "malformed_url"}
-    if not url.is_absolute():
-        return {CONF_STREAM_SOURCE: "relative_url"}
-    if not url.user and not url.password:
-        username = info.get(CONF_USERNAME)
-        password = info.get(CONF_PASSWORD)
-        if username and password:
-            url = url.with_user(username).with_password(password)
-            stream_source = str(url)
-    try:
-        stream = create_stream(
-            hass,
-            stream_source,
-            stream_options,
-            DynamicStreamSettings(),
-            "test_stream",
-        )
-        hls_provider = stream.add_provider(HLS_PROVIDER)
-        await stream.start()
-        if not await hls_provider.part_recv(timeout=SOURCE_TIMEOUT):
-            hass.async_create_task(stream.stop())
-            return {CONF_STREAM_SOURCE: "timeout"}
-        await stream.stop()
-    except StreamWorkerError as err:
-        return {CONF_STREAM_SOURCE: str(err)}
-    except PermissionError:
-        return {CONF_STREAM_SOURCE: "stream_not_permitted"}
-    except OSError as err:
-        if err.errno == EHOSTUNREACH:
-            return {CONF_STREAM_SOURCE: "stream_no_route_to_host"}
-        if err.errno == EIO:  # input/output error
-            return {CONF_STREAM_SOURCE: "stream_io_error"}
-        raise
+    # try:
+    #     url = yarl.URL(stream_source)
+    # except ValueError:
+    #     return {CONF_STREAM_SOURCE: "malformed_url"}
+    # if not url.is_absolute():
+    #     return {CONF_STREAM_SOURCE: "relative_url"}
+    # if not url.user and not url.password:
+    #     username = info.get(CONF_USERNAME)
+    #     password = info.get(CONF_PASSWORD)
+    #     if username and password:
+    #         url = url.with_user(username).with_password(password)
+    #         stream_source = str(url)
+    # try:
+    #     stream = create_stream(
+    #         hass,
+    #         stream_source,
+    #         stream_options,
+    #         DynamicStreamSettings(),
+    #         "test_stream",
+    #     )
+    #     hls_provider = stream.add_provider(HLS_PROVIDER)
+    #     await stream.start()
+    #     if not await hls_provider.part_recv(timeout=SOURCE_TIMEOUT):
+    #         hass.async_create_task(stream.stop())
+    #         return {CONF_STREAM_SOURCE: "timeout"}
+    #     await stream.stop()
+    # except StreamWorkerError as err:
+    #     return {CONF_STREAM_SOURCE: str(err)}
+    # except PermissionError:
+    #     return {CONF_STREAM_SOURCE: "stream_not_permitted"}
+    # except OSError as err:
+    #     if err.errno == EHOSTUNREACH:
+    #         return {CONF_STREAM_SOURCE: "stream_no_route_to_host"}
+    #     if err.errno == EIO:  # input/output error
+    #         return {CONF_STREAM_SOURCE: "stream_io_error"}
+    #     raise
     return {}
 
 
@@ -305,6 +307,25 @@ def register_preview(hass: HomeAssistant) -> None:
     hass.data[DOMAIN][IMAGE_PREVIEWS_ACTIVE] = True
 
 
+async def register_stream_preview(
+    hass: HomeAssistant, config
+) -> tuple[GenericCamera, str]:
+    """Set up preview for camera stream during config flow."""
+
+    preview_stream_cam = GenericCamera(
+        hass, config, "fake_entity_id_123456", "Preview Stream Cam Title"
+    )
+    preview_stream_cam.entity_id = "generic.fake_entity_id_876543"
+    stream = await preview_stream_cam.async_create_stream()
+    if not stream:
+        raise HomeAssistantError("Failed to create preview stream")
+    stream.add_provider(HLS_PROVIDER)
+    url = stream.endpoint_url(HLS_PROVIDER)
+    _LOGGER.debug("Preview stream URL: %s", url)
+
+    return preview_stream_cam, url
+
+
 class GenericIPCamConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow for generic IP camera."""
 
@@ -314,6 +335,7 @@ class GenericIPCamConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialize Generic ConfigFlow."""
         self.user_input: dict[str, Any] = {}
         self.title = ""
+        self._cam: GenericCamera | None = None
 
     @staticmethod
     def async_get_options_flow(
@@ -388,8 +410,12 @@ class GenericIPCamConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=self.title, data={}, options=self.user_input
             )
-        register_preview(self.hass)
-        preview_url = f"/api/generic/preview_flow_image/{self.flow_id}?t={datetime.now().isoformat()}"
+        config = self.user_input
+
+        cam, stream_preview_url = await register_stream_preview(self.hass, config)
+        stream_preview_url_full = "http://localhost:8123" + stream_preview_url
+        self._cam = cam
+
         return self.async_show_form(
             step_id="user_confirm_still",
             data_schema=vol.Schema(
@@ -397,7 +423,11 @@ class GenericIPCamConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_CONFIRMED_OK, default=False): bool,
                 }
             ),
-            description_placeholders={"preview_url": preview_url},
+            description_placeholders={
+                "preview_url": (
+                    f'<ha-hls-player url="{stream_preview_url_full}" autoplay="" controls="" playsinline=""></ha-hls-player>\n'
+                )
+            },
             errors=None,
         )
 
