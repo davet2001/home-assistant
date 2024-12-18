@@ -426,7 +426,6 @@ class Stream:
         wait_timeout = 0
         while not self._thread_quit.wait(timeout=wait_timeout):
             start_time = time.time()
-            self._set_state(True)
             self._diagnostics.set_value(
                 "keepalive", self.dynamic_stream_settings.preload_stream
             )
@@ -434,6 +433,10 @@ class Stream:
                 "orientation", self.dynamic_stream_settings.orientation
             )
             self._diagnostics.increment("start_worker")
+
+            def connected_callback() -> None:
+                self._set_state(True)
+
             try:
                 stream_worker(
                     self.source,
@@ -442,6 +445,7 @@ class Stream:
                     stream_state,
                     self._keyframe_converter,
                     self._thread_quit,
+                    connected_callback,
                 )
             except StreamWorkerError as err:
                 self._diagnostics.increment("worker_error")

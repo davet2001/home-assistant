@@ -519,6 +519,7 @@ def stream_worker(
     stream_state: StreamState,
     keyframe_converter: KeyFrameConverter,
     quit_event: Event,
+    is_connected_callback: Callable[[], None],
 ) -> None:
     """Handle consuming streams."""
 
@@ -620,6 +621,7 @@ def stream_worker(
 
     # Mux the first keyframe, then proceed through the rest of the packets
     muxer.mux_packet(first_keyframe)
+    is_connected_callback()
 
     with contextlib.closing(container), contextlib.closing(muxer):
         while not quit_event.is_set():
